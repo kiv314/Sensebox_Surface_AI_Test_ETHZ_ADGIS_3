@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SenseBox AI vs swisstopo Dashboard</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f4f4f4;}
+        #map { height: 100vh; width: 100vw; }
+        
+        /* Glassmorphism-Look für Boxen */
+        .leaflet-control-layers, .legend, .ui-panel {
+            background: rgba(255, 255, 255, 0.88) !important;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+            border: 1px solid rgba(255,255,255,0.6) !important;
+            font-family: inherit;
+        }
+
+        /* --- TRICK 1: Feste Reihenfolge Oben Rechts (Layer über Nordpfeil) --- */
+        .leaflet-top.leaflet-right {
+            display: flex; flex-direction: column; align-items: flex-end;
+        }
+        .leaflet-control-layers { order: 1 !important; padding: 10px 12px !important; margin-bottom: 8px !important; }
+        .north-arrow-float { order: 2 !important; margin-top: 0 !important; margin-right: 12px !important; }
+
+        /* --- TRICK 2: Feste Reihenfolge Unten Links (Zoom über Massstab) --- */
+        .leaflet-bottom.leaflet-left {
+            display: flex; flex-direction: column; align-items: flex-start;
+            padding-bottom: 12px; padding-left: 12px; pointer-events: none; /* Klicks durchlassen */
+        }
+        .leaflet-control-zoom { 
+            order: 1 !important; 
+            margin-bottom: 8px !important; 
+            margin-left: 0 !important;
+            pointer-events: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; /* Etwas schönerer Schatten für Zoom */
+            border: none !important;
+        }
+        .leaflet-control-scale { 
+            order: 2 !important; 
+            margin-bottom: 0 !important; 
+            margin-left: 0 !important;
+            pointer-events: auto;
+        }
+        /* ------------------------------------------------------------------- */
+
+
+        /* 1. HAUPT-PANEL */
+        .ui-panel { padding: 14px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; min-width: 210px; }
+        .panel-title { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1.2px; margin: 0 0 2px 0; }
+
+        /* 2. TRACK SELECTOR LISTE */
+        .track-list { display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; padding-right: 5px; }
+        .track-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 500; color: #444; }
+
+        /* 3. SLIDER & BUTTONS */
+        .slider-container { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 12px; color: #333; }
+        .mode-label { transition: color 0.3s ease; }
+        .mode-label.active { color: #111; }
+        .mode-label.inactive { color: #aaa; font-weight: 400; }
+
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e1e1e1; transition: .3s; border-radius: 30px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        input:checked + .slider { background-color: #34C759; }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        .btn-ui { background: #f8f9fa; border: 1px solid #dce0e4; border-radius: 8px; padding: 7px 10px; font-size: 11px; font-weight: 600; color: #555; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; }
+        .btn-ui:hover { background: #eef1f4; }
+        .btn-ui.active { background: linear-gradient(135deg, #0072B2, #005a8d); color: white; border-color: transparent; box-shadow: 0 4px 10px rgba(0, 114, 178, 0.25); }
+
+        /* 4. iPHONE SWITCHES IM LEAFLET LAYER MENÜ */
+        .leaflet-control-layers input[type="checkbox"] {
+            -webkit-appearance: none; appearance: none;
+            width: 32px; height: 18px; background: #e1e1e1; border-radius: 20px;
+            position: relative; cursor: pointer; outline: none; vertical-align: middle; margin: 0 8px 0 0;
+            transition: background-color 0.2s; box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+        }
+        .leaflet-control-layers input[type="checkbox"]::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 14px; height: 14px; background: white; border-radius: 50%;
+            transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .leaflet-control-layers input[type="checkbox"]:checked { background: #34C759; }
+        .leaflet-control-layers input[type="checkbox"]:checked::after { transform: translateX(14px); }
+
+        .layer-indent { display: inline-block; margin-left: 18px; font-size: 0.9em; color: #666; }
+        .layer-indent::before { content: '↳'; margin-right: 5px; color: #aaa; font-weight: bold; }
+
+        /* 5. LEGENDE (Ganz unten rechts) */
+        .legend { padding: 10px 12px; font-size: 11px; color: #444; line-height: 1.6; margin-bottom: 12px !important; margin-right: 12px !important; }
+        .legend i { width: 10px; height: 10px; float: left; margin-right: 6px; margin-top: 3px; border-radius: 50%; }
+        .legend-title { font-size: 9px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px; }
+
+        /* 6. MINIMALISTISCHER NORDPFEIL */
+        .north-arrow-float {
+            background: none !important; border: none !important; box-shadow: none !important;
+            text-align: center; color: #333; pointer-events: none;
+        }
+        .north-arrow-float .letter { font-size: 10px; font-weight: 800; display: block; color: #666; }
+        .north-arrow-float .arrow { font-size: 20px; font-weight: 300; display: block; margin-top: -3px; color: #444; }
+
+        /* 7. INFO MODAL SCREEN */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); z-index: 9999;
+            align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s;
+        }
+        .modal-content {
+            background: white; padding: 22px 28px; border-radius: 14px; max-width: 420px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15); transform: translateY(15px); transition: transform 0.2s;
+            font-size: 13px; line-height: 1.5; color: #333;
+        }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-overlay.show .modal-content { transform: translateY(0); }
+        .modal-close { background: #333; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; float: right; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div id="info-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 6px;">Project Information</h3>
+            <p><b>Course:</b> Geosensors – Assignment 3 (ETH Zurich)</p>
+            <p><b>Objective:</b> Validation of edge-computed ML surface classifications from SenseBox Bike sensor platforms against high-accuracy federal geographic data.</p>
+            <p><b>Privacy & Scope:</b> Sensory data tracks are localized to public domains. Personal attributes are masked, and trajectory analysis complies with academic privacy standards. Full verification and reference criteria are available in the attached report.</p>
+            
+            <p><b>Data Sources:</b><br>
+               • <i>Ground Truth Data:</i> Federal Office of Topography (swisstopo swissTLM3D)<br>
+               • <i>Background Basemap:</i> OpenStreetMap via CartoDB</p>
+               
+            <button class="modal-close" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+    <script>
+        function openModal() { document.getElementById('info-modal').classList.add('show'); }
+        function closeModal() { document.getElementById('info-modal').classList.remove('show'); }
+    </script>
+</body>
+</html>
