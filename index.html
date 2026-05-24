@@ -90,6 +90,7 @@
     <div id="map"></div>
 
     <!-- Info Modal -->
+        <!-- Info Modal -->
     <div id="info-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 6px;">Project Information</h3>
@@ -97,12 +98,13 @@
             <p>This webtool evaluates the AI model of the SenseBox Bike, which classifies the surface the bike rides on. In the first track (April 30), the ground truth was manually adjusted as it was found to be incorrect. The four different surface classes of the SenseBox AI were aggregated into 'nature' and 'paved' to match the official data.</p>
             
             <h4 style="margin: 14px 0 4px 0; color: #222; font-size: 14px;">About us</h4>
-            <p style="margin-top: 0;"><b>Kevin Kosch</b><br>
-            This web application was developed for Assignment 3 of the ETH course "Advanced GIS" (2026). The task involves validating edge-computed ML surface classifications against high-accuracy federal geographic data.</p>
+            <p style="margin-top: 0;"><b>Author: Kevin Kosch</b><br>
+            I am a Geomatics Master's student at ETH Zurich and this web app was created as part of my Assignment 3 for the Advanced GIS course. For this task, I tested the provided Bike SenseBox's Surface AI by comparing it to official data from swisstopo. The raw csv data of the sensebox was combined with the ground truth data from swisstopo (mistakes were corrected if I found any) in a preprocessing step with python. After the preprocessing, a GeoJSON file was generated for each track which has been used for visualization.</p>
             
             <h4 style="margin: 14px 0 4px 0; color: #222; font-size: 14px;">Legal notice</h4>
             <p style="margin-top: 0;"><b>Copyright Permissions:</b> This work and the underlying code are released into the <b>Public Domain</b>. You are free to use, modify, and distribute this work without restriction.<br>
             <b>Data Sources:</b> <br>
+            • <i>Tracks:</i> Collected myself using a Bike SenseBox mounted on a normal city bike (not a racing or mountain bike).<br>
             • <i>Ground Truth Data:</i> Federal Office of Topography (swisstopo swissTLM3D)<br>
             • <i>Background Basemap:</i> OpenStreetMap via CartoDB</p>
             
